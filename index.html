@@ -1,66 +1,213 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Affise Web SDK Test</title>
-    <script>
-    // 1. Include the Affise Web SDK (Replace with your actual SDK URL)
-    (function(a,f,f,i,s,e){
-        a['AffiseObject']=i;a[i]=a[i]||function(){
-            (a[i].q=a[i].q||[]).push(arguments);
-        },a[i].l=1*new Date();
-        s=f.createElement('script');e=f.getElementsByTagName('script')[0];
-        s.async=1;s.src='https://your-affise-domain.com/affise_sdk.js'; // Replace with your Affise SDK URL
-        e.parentNode.insertBefore(s,e);
-    })(window,document,'script','AffiseSDK');
-    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Affise SDK Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Add a bit more vertical spacing */
+        body {
+            font-family: 'Inter', sans-serif; /* Use Inter font */
+            padding: 2rem;
+        }
+        .message-box {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 0.375rem; /* rounded-md */
+            word-wrap: break-word; /* Ensure long IDs wrap */
+        }
+        .success {
+            background-color: #d1fae5; /* green-100 */
+            color: #065f46; /* green-800 */
+            border: 1px solid #6ee7b7; /* green-300 */
+        }
+        .error {
+            background-color: #fee2e2; /* red-100 */
+            color: #991b1b; /* red-800 */
+            border: 1px solid #fca5a5; /* red-300 */
+        }
+        .info {
+            background-color: #e0f2fe; /* sky-100 */
+            color: #075985; /* sky-800 */
+            border: 1px solid #7dd3fc; /* sky-300 */
+        }
+        button {
+            transition: background-color 0.2s ease-in-out;
+        }
+    </style>
+    <script src="https://{your-tracking-domain}/websdk.js" defer></script>
 </head>
-<body>
-    <h1>Affise Web SDK Test Page</h1>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
 
-    <p>Click the button below to simulate a click event.</p>
-    <button id="myCPLButton">Click for CPL Offer</button>
+    <div class="bg-white p-8 rounded-lg shadow-md w-full max-w-lg text-center">
+        <h1 class="text-2xl font-bold mb-6 text-gray-800">Affise SDK Test Page</h1>
 
-    <p>This is a test page.  The conversion tracking code would normally be on a "thank you" or success page after a user completes the CPL action.</p>
-     <button id="simulateConversion">Simulate Conversion</button>
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-2 text-gray-700">Click Tracking</h2>
+            <p class="text-gray-600 mb-4">The SDK should automatically record a click using parameters from the URL (offer_id, aff_id) when this page loads.</p>
+            <div id="click-status" class="message-box info">
+                Waiting for SDK to load...
+            </div>
+        </div>
 
+        <div>
+            <h2 class="text-xl font-semibold mb-2 text-gray-700">Conversion Tracking</h2>
+            <p class="text-gray-600 mb-4">Click the button below to simulate a conversion using the stored click ID (associated with the offer_id from the URL).</p>
+            <button id="conversion-button" class="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-opacity-75 disabled:opacity-50 disabled:cursor-not-allowed">
+                Trigger Conversion
+            </button>
+            <div id="conversion-status" class="message-box info mt-4">
+                Waiting for conversion trigger...
+            </div>
+        </div>
+    </div>
 
     <script>
-    // 2. Initialize the Affise SDK (Replace with your actual settings)
-    AffiseSDK('init', {
-        domain: 'YOUR_DOMAIN', // Replace with your Affise domain
-    });
+        // --- Configuration ---
+        // These are now defaults if URL parameters are missing
+        const DEFAULT_OFFER_ID = 'DEFAULT_OFFER';
+        const DEFAULT_AFFILIATE_ID = 'DEFAULT_AFFILIATE';
+        // Conversion details (can still be constants or fetched dynamically)
+        const CONVERSION_STATUS = '1'; // '1' for Confirmed, '2' Pending, '3' Declined, '5' Hold
+        const CONVERSION_SUM = '10.00'; // Example conversion amount
 
-    // 3. Click Tracking
-    document.getElementById('myCPLButton').addEventListener('click', function() {
-        AffiseSDK('trackClick', {
-            trackingURL: 'YOUR_TRACKING_URL', // Replace with your Affise tracking URL (from your Affise offer)
-            keymapping: {
-                'aff_sub1': 'your_param1',  // Replace 'your_param1' with the actual parameter name from your URL
-                'aff_sub2': 'your_param2'   //  Add more key mappings as needed
-            }
+        // --- DOM Elements ---
+        const clickStatusDiv = document.getElementById('click-status');
+        const conversionButton = document.getElementById('conversion-button');
+        const conversionStatusDiv = document.getElementById('conversion-status');
+
+        // Variable to store the offer ID retrieved from the URL, accessible by both functions
+        let currentOfferId = null;
+
+        // Function to display messages
+        function showMessage(element, message, type = 'info') {
+            element.textContent = message;
+            element.className = `message-box ${type}`; // Reset classes and add new type
+        }
+
+        // --- Initialization ---
+        // Wait for the DOM and the SDK script to be fully loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            // Disable button initially until click is processed
+            conversionButton.disabled = true;
+            showMessage(clickStatusDiv, 'Checking for Affise SDK...', 'info');
+
+            // Check if ASDK is available (it might take a moment after DOMContentLoaded)
+            const checkSdkInterval = setInterval(() => {
+                if (typeof ASDK !== 'undefined' && typeof ASDK.urlParameter === 'function') { // Ensure ASDK and urlParameter are ready
+                    clearInterval(checkSdkInterval);
+                    console.log('Affise SDK (ASDK) loaded.');
+                    initializeTracking();
+                } else {
+                    console.log('Waiting for ASDK and its methods...');
+                    // Optional: Add a timeout or max attempts
+                }
+            }, 100); // Check every 100ms
         });
-        alert('Click tracked! Check your Affise account for the click.'); //Basic user feedback
-    });
 
+        // --- Tracking Logic ---
+        function initializeTracking() {
+            // 1. Get tracking parameters from URL using the SDK utility
+            // Use 'offer_id' for offer ID parameter name
+            currentOfferId = ASDK.urlParameter('offer_id') || DEFAULT_OFFER_ID;
+            // Use 'aff_id' for affiliate ID parameter name (as per example)
+            const affiliateIdFromUrl = ASDK.urlParameter('aff_id') || DEFAULT_AFFILIATE_ID;
 
+            console.log(`Retrieved from URL - Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}`);
+            showMessage(clickStatusDiv, `Attempting click tracking with Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}...`, 'info');
 
-    // 4. Conversion Tracking
-    document.getElementById('simulateConversion').addEventListener('click', function() {
-        AffiseSDK('trackConversion', {
-            domain: 'YOUR_DOMAIN', // Replace with your Affise domain
-            accountId: 'YOUR_ACCOUNT_ID',  // Replace with your Affise account ID
-            offerId: 'YOUR_OFFER_ID',      // Replace with your Affise offer ID
-            conversionData: {
-                event: 'lead',       //  Specify the conversion event type
-                payout: 10.00,      //  Replace with the actual payout amount
-                currency: 'USD',
-                // Add any other relevant conversion data here (e.g., order ID, transaction ID)
+            // 2. Generate a click using parameters from URL
+            ASDK.click({
+                offer_id: currentOfferId,        // Required - From URL or default
+                affiliate_id: affiliateIdFromUrl // Required - From URL or default
+                // Add any other optional parameters here if needed
+                // user_agent: navigator.userAgent
+            })
+            .then(clickId => {
+                console.log('Click tracked successfully. Click ID:', clickId);
+                showMessage(clickStatusDiv, `Click tracked successfully! Offer ID: ${currentOfferId}, Click ID: ${clickId}`, 'success');
+                conversionButton.disabled = false; // Enable conversion button
+                showMessage(conversionStatusDiv, 'Ready to trigger conversion.', 'info');
+            })
+            .catch(error => {
+                console.error('Error tracking click:', error);
+                let errorMessage = `Error tracking click: ${error.message}`;
+                if (error.details) {
+                    errorMessage += ` Details: ${JSON.stringify(error.details)}`;
+                }
+                 // Check for common configuration errors
+                 if (error.message && error.message.includes('Failed to fetch') && document.currentScript && document.currentScript.src.includes('{your-tracking-domain}')) {
+                     errorMessage += ' - Did you replace "{your-tracking-domain}" in the script tag?';
+                 } else if (error.code === 'MISSING_REQUIRED_PARAMS') {
+                     errorMessage += ' - Check if offer_id and aff_id parameters are present in the URL or if defaults are intended.';
+                 } else if (error.message && error.message.includes('ASDK is not defined')) {
+                     errorMessage += ' - SDK script might not have loaded correctly. Check the script tag and network tab.';
+                 }
+                showMessage(clickStatusDiv, errorMessage, 'error');
+                // Keep button disabled if click fails
+                showMessage(conversionStatusDiv, 'Cannot trigger conversion because click tracking failed.', 'error');
+            });
+
+            // 3. Add Event Listener for Conversion Button
+            conversionButton.addEventListener('click', () => {
+                console.log('Conversion button clicked.');
+                triggerConversion();
+            });
+        }
+
+        function triggerConversion() {
+            // Ensure we have the offer ID from the initial step
+            if (!currentOfferId) {
+                console.error('Conversion failed: Offer ID from URL was not determined.');
+                showMessage(conversionStatusDiv, 'Conversion failed: Cannot determine Offer ID used for the initial click.', 'error');
+                return;
             }
-        });
-        alert('Conversion tracked! Check your Affise account for the conversion.');
-    });
 
+            // Disable button during processing
+            conversionButton.disabled = true;
+            showMessage(conversionStatusDiv, `Attempting conversion tracking for Offer ID: ${currentOfferId}...`, 'info');
+
+            // Retrieve the click ID stored by the SDK for the specific offer ID obtained from the URL
+            const storedClickId = ASDK.clickId(currentOfferId);
+            console.log(`Retrieved Click ID for Offer ${currentOfferId}:`, storedClickId);
+
+            if (!storedClickId) {
+                 console.error('Conversion failed: Could not retrieve stored Click ID for Offer ID:', currentOfferId);
+                 showMessage(conversionStatusDiv, `Conversion failed: Could not retrieve stored Click ID for Offer ID: ${currentOfferId}. Was the initial click successful? Check URL parameters.`, 'error');
+                 // Re-enable button if click ID retrieval fails
+                 conversionButton.disabled = false;
+                 return; // Stop if no click ID
+            }
+
+            console.log(`Attempting conversion with Click ID: ${storedClickId}, Offer ID: ${currentOfferId}`);
+
+            ASDK.conversion({
+                click_id: storedClickId,    // Use the stored click ID
+                offer_id: currentOfferId,   // Use the Offer ID from the URL
+                status: CONVERSION_STATUS,
+                sum: CONVERSION_SUM
+                // Add other optional parameters like 'comment', 'items', 'goal' etc. if needed
+                // comment: 'Test conversion from SDK page'
+            })
+            .then(() => {
+                console.log('Conversion tracked successfully.');
+                showMessage(conversionStatusDiv, `Conversion for Offer ID ${currentOfferId} tracked successfully!`, 'success');
+                // Optionally keep button disabled after successful conversion, or re-enable
+                // conversionButton.disabled = false;
+            })
+            .catch(error => {
+                console.error('Error tracking conversion:', error);
+                let errorMessage = `Error tracking conversion: ${error.message}`;
+                 if (error.details) {
+                    errorMessage += ` Details: ${JSON.stringify(error.details)}`;
+                 }
+                showMessage(conversionStatusDiv, errorMessage, 'error');
+                conversionButton.disabled = false; // Re-enable button on error
+            });
+        }
 
     </script>
+
 </body>
 </html>
