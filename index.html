@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Affise Web SDK Test</title>
+    <script>
+    // 1. Include the Affise Web SDK (Replace with your actual SDK URL)
+    (function(a,f,f,i,s,e){
+        a['AffiseObject']=i;a[i]=a[i]||function(){
+            (a[i].q=a[i].q||[]).push(arguments);
+        },a[i].l=1*new Date();
+        s=f.createElement('script');e=f.getElementsByTagName('script')[0];
+        s.async=1;s.src='https://your-affise-domain.com/affise_sdk.js'; // Replace with your Affise SDK URL
+        e.parentNode.insertBefore(s,e);
+    })(window,document,'script','AffiseSDK');
+    </script>
+</head>
+<body>
+    <h1>Affise Web SDK Test Page</h1>
+
+    <p>Click the button below to simulate a click event.</p>
+    <button id="myCPLButton">Click for CPL Offer</button>
+
+    <p>This is a test page.  The conversion tracking code would normally be on a "thank you" or success page after a user completes the CPL action.</p>
+     <button id="simulateConversion">Simulate Conversion</button>
+
+
+    <script>
+    // 2. Initialize the Affise SDK (Replace with your actual settings)
+    AffiseSDK('init', {
+        domain: 'YOUR_DOMAIN', // Replace with your Affise domain
+    });
+
+    // 3. Click Tracking
+    document.getElementById('myCPLButton').addEventListener('click', function() {
+        AffiseSDK('trackClick', {
+            trackingURL: 'YOUR_TRACKING_URL', // Replace with your Affise tracking URL (from your Affise offer)
+            keymapping: {
+                'aff_sub1': 'your_param1',  // Replace 'your_param1' with the actual parameter name from your URL
+                'aff_sub2': 'your_param2'   //  Add more key mappings as needed
+            }
+        });
+        alert('Click tracked! Check your Affise account for the click.'); //Basic user feedback
+    });
+
+
+
+    // 4. Conversion Tracking
+    document.getElementById('simulateConversion').addEventListener('click', function() {
+        AffiseSDK('trackConversion', {
+            domain: 'YOUR_DOMAIN', // Replace with your Affise domain
+            accountId: 'YOUR_ACCOUNT_ID',  // Replace with your Affise account ID
+            offerId: 'YOUR_OFFER_ID',      // Replace with your Affise offer ID
+            conversionData: {
+                event: 'lead',       //  Specify the conversion event type
+                payout: 10.00,      //  Replace with the actual payout amount
+                currency: 'USD',
+                // Add any other relevant conversion data here (e.g., order ID, transaction ID)
+            }
+        });
+        alert('Conversion tracked! Check your Affise account for the conversion.');
+    });
+
+
+    </script>
+</body>
+</html>
