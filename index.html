@@ -45,7 +45,7 @@
 
         <div class="mb-6">
             <h2 class="text-xl font-semibold mb-2 text-gray-700">Click Tracking</h2>
-            <p class="text-gray-600 mb-4">The SDK should automatically record a click using parameters from the URL (offer_id, aff_id) when this page loads.</p>
+            <p class="text-gray-600 mb-4">The SDK should automatically record a click using parameters from the URL (offer_id, aff_id, sub-parameter) when this page loads.</p>
             <div id="click-status" class="message-box info">
                 Waiting for SDK to load...
             </div>
@@ -113,22 +113,32 @@
             currentOfferId = ASDK.urlParameter('offer_id') || DEFAULT_OFFER_ID;
             // Use 'aff_id' for affiliate ID parameter name (as per example)
             const affiliateIdFromUrl = ASDK.urlParameter('aff_id') || DEFAULT_AFFILIATE_ID;
-            sub1 = ASD.urlParameter('sub_parameter1')
+            // Get sub-parameter (use const for declaration)
+            const sub1 = ASDK.urlParameter('sub-parameter'); // Use the name you want in the URL, e.g., ?sub-parameter=value123
 
-            console.log(`Retrieved from URL - Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}`);
-            showMessage(clickStatusDiv, `Attempting click tracking with Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}...`, 'info');
+            console.log(`Retrieved from URL - Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}, Sub1: ${sub1}`);
+            showMessage(clickStatusDiv, `Attempting click tracking with Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}, Sub1: ${sub1 || 'Not Provided'}...`, 'info');
 
-            // 2. Generate a click using parameters from URL
-            ASDK.click({
+            // Prepare click data object
+            const clickData = {
                 offer_id: currentOfferId,        // Required - From URL or default
                 affiliate_id: affiliateIdFromUrl // Required - From URL or default
-                sub1: sub1
-                // Add any other optional parameters here if needed
+                // Add other optional parameters here if needed
                 // user_agent: navigator.userAgent
-            })
+            };
+
+            // Conditionally add sub1 if it exists (has a value retrieved from URL)
+            if (sub1) {
+                clickData.sub1 = sub1; // Add the sub1 key-value pair
+            }
+
+            // 2. Generate a click using the prepared data object
+            ASDK.click(clickData) // Pass the constructed object
             .then(clickId => {
                 console.log('Click tracked successfully. Click ID:', clickId);
-                showMessage(clickStatusDiv, `Click tracked successfully! Offer ID: ${currentOfferId}, Click ID: ${clickId}`, 'success');
+                // Include sub1 in the success message if it was sent
+                const sub1MessagePart = sub1 ? `, Sub1: ${sub1}` : '';
+                showMessage(clickStatusDiv, `Click tracked successfully! Offer ID: ${currentOfferId}${sub1MessagePart}, Click ID: ${clickId}`, 'success');
                 conversionButton.disabled = false; // Enable conversion button
                 showMessage(conversionStatusDiv, 'Ready to trigger conversion.', 'info');
             })
