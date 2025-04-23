@@ -113,6 +113,7 @@
             currentOfferId = ASDK.urlParameter('offer_id') || DEFAULT_OFFER_ID;
             // Use 'aff_id' for affiliate ID parameter name (as per example)
             const affiliateIdFromUrl = ASDK.urlParameter('aff_id') || DEFAULT_AFFILIATE_ID;
+            sub1 = ASD.urlParameter('sub_parameter1')
 
             console.log(`Retrieved from URL - Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}`);
             showMessage(clickStatusDiv, `Attempting click tracking with Offer ID: ${currentOfferId}, Affiliate ID: ${affiliateIdFromUrl}...`, 'info');
@@ -121,6 +122,7 @@
             ASDK.click({
                 offer_id: currentOfferId,        // Required - From URL or default
                 affiliate_id: affiliateIdFromUrl // Required - From URL or default
+                sub1: sub1
                 // Add any other optional parameters here if needed
                 // user_agent: navigator.userAgent
             })
